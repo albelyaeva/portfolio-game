@@ -51,7 +51,7 @@ export function spawnChasingUFO(scene: Phaser.Scene, ufos: Phaser.Physics.Arcade
         return;
     }
 
-    // ✅ Play UFO Animation
+    // Play UFO Animation
     ufo.play("chasing_ufo_fly");
 
     // Make UFO chase the target (Rocket)
@@ -61,7 +61,7 @@ export function spawnChasingUFO(scene: Phaser.Scene, ufos: Phaser.Physics.Arcade
         ufo.destroy();
     });
 
-    // // UFO AI - Move towards the Rocket
+    // UFO AI - Move towards the Rocket
     scene.physics.add.collider(target, ufo);
 
     scene.time.addEvent({
