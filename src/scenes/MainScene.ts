@@ -72,6 +72,36 @@ export default class MainScene extends Phaser.Scene {
         this.registerCollisions();
         this.registerSpawnEvents();
         this.registerGlobalBulletCleanup();
+        const music = this.sound.add('backgroundMusic', { loop: true, volume: 0.5 });
+        music.play();
+
+        const speakerIcon = this.add.image(this.cameras.main.width - 40, this.cameras.main.height - 40, 'speakerOn')
+            .setScrollFactor(0)
+            .setInteractive()
+            .setDisplaySize(40, 40);
+
+        speakerIcon.on('pointerdown', () => {
+            if (music.isPlaying) {
+                music.pause();
+                speakerIcon.setTexture('speakerOff');
+            } else {
+                music.resume();
+                speakerIcon.setTexture('speakerOn');
+            }
+        });
+
+        speakerIcon.on('pointerover', () => {
+            speakerIcon.setDisplaySize(50, 50);
+        });
+
+        speakerIcon.on('pointerout', () => {
+            speakerIcon.setDisplaySize(40, 40); // Revert size
+        });
+
+        this.scale.on('resize', (gameSize) => {
+            const { width, height } = gameSize;
+            speakerIcon.setPosition(width - 40, height - 40);
+        });
 
         console.log("✅ Scene Created!");
     }

@@ -11,4 +11,7 @@ export const preloadAssets = (scene: Phaser.Scene) => {
         spacing: 0
     });
     scene.load.spritesheet("chasing_ufo", "/assets/ufo_spritesheet.png", { frameWidth: 63, frameHeight: 44 });
+    scene.load.image('speakerOn', 'assets/icons/speaker-on.png');
+    scene.load.image('speakerOff', 'assets/icons/speaker-off.png');
+    scene.load.audio('backgroundMusic', 'assets/audio/slow-travel.wav');
 };
