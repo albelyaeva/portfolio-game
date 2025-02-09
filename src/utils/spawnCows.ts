@@ -6,18 +6,18 @@ export function spawnRandomCows(scene: Phaser.Scene, cows: Phaser.Physics.Arcade
         return;
     }
 
-    // ✅ Limit the number of cows in space
     if (cows.countActive(true) >= 5) {
         console.log("🐄 Too many cows in space! Skipping spawn.");
         return;
     }
 
-    // 🚀 Spawn at a random position above the screen
     const x = Phaser.Math.Between(100, 700);
-    const y = scene.cameras.main.scrollY - 50; // Appear above visible screen
+    const y = scene.cameras.main.scrollY - 50;
 
-    const cow = cows.create(x, y, "cow").setScale(1.2);
+    const cow = cows.create(x, y, "cow").setScale(1.2) as Phaser.Physics.Arcade.Sprite;
     if (!cow) return;
+
+    (cow.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
 
     // 🎲 Give cows random floating movement
     cow.setVelocity(Phaser.Math.Between(-50, 50), Phaser.Math.Between(-20, 20));

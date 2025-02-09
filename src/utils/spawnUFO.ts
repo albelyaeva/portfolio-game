@@ -17,10 +17,10 @@ export function spawnRandomUFO(scene: Phaser.Scene, ufos: Phaser.Physics.Arcade.
     const ufo = ufos.create(x, y, "chasing_ufo").setScale(1.2);
     if (!ufo) return;
 
-    // 🎥 Play animation
+    // Play animation
     ufo.play("chasing_ufo_fly");
 
-    // 🎲 Random movement
+    // Random movement
     ufo.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-50, 50));
     ufo.setBounce(1, 1);
     ufo.setCollideWorldBounds(true);
