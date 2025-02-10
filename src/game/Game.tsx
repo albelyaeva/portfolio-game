@@ -10,7 +10,13 @@ const Game = () => {
             type: Phaser.AUTO,
             width: 800,
             height: 600,
-            parent: gameContainer.current!,
+            parent: 'game-container',
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: window.innerWidth,
+                height: window.innerHeight
+            },
             physics: {
                 default: "arcade",
                 arcade: {

@@ -1,11 +1,11 @@
 import * as Phaser from "phaser";
-import { preloadAssets } from "../utils/preloadAssets";
-import { createAnimations } from "../utils/createAnimations";
-import { generateStars } from "../utils/spawnStars";
-import { spawnRandomCows } from "../utils/spawnCows";
-import { spawnChasingUFO } from "../utils/spawnUFO";
-import { spawnAggressiveUFO } from "../utils/spawnAggressiveUFO";
-import { bulletHitRocket } from "../utils/bulletHitRocket";
+import {preloadAssets} from "../utils/preloadAssets";
+import {createAnimations} from "../utils/createAnimations";
+import {generateStars} from "../utils/spawnStars";
+import {spawnRandomCows} from "../utils/spawnCows";
+import {spawnChasingUFO} from "../utils/spawnUFO";
+import {spawnAggressiveUFO} from "../utils/spawnAggressiveUFO";
+import {bulletHitRocket} from "../utils/bulletHitRocket";
 
 export default class MainScene extends Phaser.Scene {
     // Constants for gameplay values
@@ -39,9 +39,11 @@ export default class MainScene extends Phaser.Scene {
     private scoreText!: Phaser.GameObjects.Text;
     private healthText!: Phaser.GameObjects.Text;
     private cowsRescuedText!: Phaser.GameObjects.Text;
+    private gameOverText!: Phaser.GameObjects.Text;
+    private cowsRescuedGameOverText!: Phaser.GameObjects.Text;
 
     constructor() {
-        super({ key: "MainScene" });
+        super({key: "MainScene"});
     }
 
     init() {
@@ -72,15 +74,20 @@ export default class MainScene extends Phaser.Scene {
         this.registerCollisions();
         this.registerSpawnEvents();
         this.registerGlobalBulletCleanup();
-        const music = this.sound.add('backgroundMusic', { loop: true, volume: 0.5 });
+        const music = this.sound.add('backgroundMusic', {loop: true, volume: 0.5});
         music.play();
+
+        let thrust = 0;
 
         const speakerIcon = this.add.image(this.cameras.main.width - 40, this.cameras.main.height - 40, 'speakerOn')
             .setScrollFactor(0)
             .setInteractive()
             .setDisplaySize(40, 40);
 
-        speakerIcon.on('pointerdown', () => {
+        speakerIcon.on('pointerdown', (pointer, localX, localY, event) => {
+            event.stopPropagation();
+            thrust = -300;
+
             if (music.isPlaying) {
                 music.pause();
                 speakerIcon.setTexture('speakerOff');
@@ -90,17 +97,53 @@ export default class MainScene extends Phaser.Scene {
             }
         });
 
+        this.input.on('pointerdown', (pointer) => {
+            thrust = 0;
+            if (pointer.x < this.cameras.main.width / 2) {
+                this.rocket.setVelocityX(-200);
+            } else {
+                this.rocket.setVelocityX(200);
+            }
+
+            this.rocket.setVelocityY(-200);
+        });
+
+        this.input.on('pointerup', () => {
+            this.rocket.setVelocityX(0);
+            this.rocket.setVelocityY(0);
+        });
+
+        this.physics.world.on('worldstep', () => {
+            this.rocket.setVelocityY(thrust); // Apply continuous thrust
+        });
+
         speakerIcon.on('pointerover', () => {
             speakerIcon.setDisplaySize(50, 50);
         });
 
         speakerIcon.on('pointerout', () => {
-            speakerIcon.setDisplaySize(40, 40); // Revert size
+            speakerIcon.setDisplaySize(40, 40);
         });
 
         this.scale.on('resize', (gameSize) => {
-            const { width, height } = gameSize;
+            const {width, height} = gameSize;
+
             speakerIcon.setPosition(width - 40, height - 40);
+
+            // 🚀 Center the rocket
+            this.rocket.setPosition(width / 2, height - 100);
+
+            // 🎮 Center "Game Over" text
+            const newFontSize = Math.max(width * 0.08, 24);
+            this.gameOverText.setPosition(width / 2, height / 2);
+            this.gameOverText.setFontSize(newFontSize);
+
+            // ⭐ Reposition the stars collected text
+            const scoreFontSize = Math.max(width * 0.03, 16);
+            this.scoreText.setPosition(width - 160, 16);
+            this.scoreText.setFontSize(scoreFontSize);
+
+            this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
         });
 
         console.log("✅ Scene Created!");
@@ -167,22 +210,60 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private setupUI() {
+        const baseFontSize = Math.max(this.cameras.main.width * 0.025, 14);
+        const baseFontSizeGameOver = Math.max(this.cameras.main.width * 0.03, 16);
+
+        //  Health Text (Top-Left)
         this.healthText = this.add.text(16, 16, `❤️ Health: ${this.rocketHealth}`, {
-            fontSize: "20px",
+            fontSize: `${baseFontSize}px`,
             color: "#ff4d4d"
         }).setScrollFactor(0);
 
-        this.scoreText = this.add.text(600, 16, `⭐ Stars: ${this.score}`, {
-            fontSize: "20px",
+        // Stars Text (Top-Right)
+        this.scoreText = this.add.text(this.cameras.main.width - 160, 16, `⭐ Stars: ${this.score}`, {
+            fontSize: `${baseFontSize}px`,
             color: "#ffff00",
             fontFamily: "Arial",
             fontStyle: "bold"
         }).setScrollFactor(0);
 
+        // Cows Rescued Text (Below Health)
         this.cowsRescuedText = this.add.text(16, 50, `🐄 Cows Rescued: ${this.cowsRescued}`, {
-            fontSize: "20px",
+            fontSize: `${baseFontSize}px`,
             color: "#ffffff"
         }).setScrollFactor(0);
+
+        this.cowsRescuedGameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 50,
+            `🐄 Cows Rescued: ${this.cowsRescued}`, {
+            fontSize: "30px",
+            color: "#ffffff"
+        }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
+
+        this.gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'GAME OVER', {
+            fontSize: `${baseFontSizeGameOver}px`,
+            color: '#ff0000',
+            fontFamily: 'Arial',
+            fontStyle: 'bold'
+        })
+            .setOrigin(0.5)
+            .setScrollFactor(0)
+            .setVisible(false);
+
+
+        const padding = Math.max(this.cameras.main.width * 0.02, 10);
+
+        this.healthText.setPosition(padding, padding);
+        this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + padding);
+        const safeAreaPadding = 20;
+        this.scoreText.setPosition(this.cameras.main.width - 160, safeAreaPadding);
+        this.tweens.add({
+            targets: this.cowsRescuedText,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            yoyo: true,
+            duration: 200,
+            ease: 'Power2'
+        });
     }
 
     private registerCollisions() {
@@ -421,8 +502,15 @@ export default class MainScene extends Phaser.Scene {
     private endGame() {
         console.log("🚀💀 Game Over! Rocket destroyed!");
         this.rocket.destroy();
-        this.add.text(300, 300, "GAME OVER", { fontSize: "40px", color: "#ff0000" }).setScrollFactor(0);
-        this.add.text(300, 350, `🐄 Cows Rescued: ${this.cowsRescued}`, { fontSize: "30px", color: "#ffffff" }).setScrollFactor(0);
+        this.gameOverText.setVisible(true);
+        this.cowsRescuedGameOverText.setVisible(true);
+
+        this.tweens.add({
+            targets: this.gameOverText,
+            alpha: {from: 0, to: 1},
+            duration: 1000,
+            ease: 'Power2'
+        });
         this.time.delayedCall(3000, () => this.scene.restart());
     }
 }
