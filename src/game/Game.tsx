@@ -17,6 +17,9 @@ const Game = () => {
                 width: window.innerWidth,
                 height: window.innerHeight
             },
+            input: {
+                activePointers: 3
+            },
             physics: {
                 default: "arcade",
                 arcade: {
