@@ -1,14 +1,14 @@
 import * as Phaser from "phaser";
-import {preloadAssets} from "../utils/preloadAssets";
-import {createAnimations} from "../utils/createAnimations";
-import {generateStars} from "../utils/spawnStars";
-import {spawnRandomCows} from "../utils/spawnCows";
-import {spawnChasingUFO} from "../utils/spawnUFO";
-import {spawnAggressiveUFO} from "../utils/spawnAggressiveUFO";
-import {bulletHitRocket} from "../utils/bulletHitRocket";
+import { preloadAssets } from "../utils/preloadAssets";
+import { createAnimations } from "../utils/createAnimations";
+import { generateStars } from "../utils/spawnStars";
+import { spawnRandomCows } from "../utils/spawnCows";
+import { spawnChasingUFO } from "../utils/spawnUFO";
+import { spawnAggressiveUFO } from "../utils/spawnAggressiveUFO";
+import { bulletHitRocket } from "../utils/bulletHitRocket";
 
 export default class MainScene extends Phaser.Scene {
-    // Constants for gameplay values
+    // ─── CONSTANTS ─────────────────────────────────────────────
     private static readonly ROCKET_SPEED = 200;
     private static readonly BULLET_SPEED = -300;
     private static readonly BULLET_COOLDOWN = 300;
@@ -16,7 +16,7 @@ export default class MainScene extends Phaser.Scene {
     private static readonly UFO_COW_ESCAPE_VELOCITY = 170;
     private static readonly OFFSCREEN_BUFFER = 700;
 
-    // Game Objects & Groups
+    // ─── GAME OBJECTS & GROUPS ─────────────────────────────────
     private rocket!: Phaser.Physics.Arcade.Sprite;
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private shootKey!: Phaser.Input.Keyboard.Key;
@@ -28,38 +28,42 @@ export default class MainScene extends Phaser.Scene {
     private rocketBullets!: Phaser.Physics.Arcade.Group;
     private ufoBullets!: Phaser.Physics.Arcade.Group;
 
-    // Game State
+    // ─── GAME STATE ─────────────────────────────────────────────
     private score = 0;
     private rocketHealth = 3;
     private cowsRescued = 0;
     private lastStarSpawnTime = 0;
     private lastFired = 0;
 
-    // UI Elements
+    // ─── UI ELEMENTS ─────────────────────────────────────────────
     private scoreText!: Phaser.GameObjects.Text;
     private healthText!: Phaser.GameObjects.Text;
     private cowsRescuedText!: Phaser.GameObjects.Text;
     private gameOverText!: Phaser.GameObjects.Text;
     private cowsRescuedGameOverText!: Phaser.GameObjects.Text;
 
+    // ─── AUDIO & POINTER STATE ──────────────────────────────────
+    private music!: Phaser.Sound.BaseSound;
+    private isTouching = false;
+
     constructor() {
-        super({key: "MainScene"});
+        super({ key: "MainScene" });
     }
 
     init() {
+        // Reset game state on every scene start/restart.
         this.score = 0;
         this.rocketHealth = 3;
         this.cowsRescued = 0;
     }
 
-
     preload() {
         preloadAssets(this);
-        // Create bullet texture once
+        // Create the bullet texture
         const graphics = this.add.graphics();
         graphics.fillStyle(0xFF69B4, 1);
         graphics.fillRect(0, 0, 4, 10);
-        graphics.generateTexture('pinkBullet', 4, 10);
+        graphics.generateTexture("pinkBullet", 4, 10);
         graphics.destroy();
     }
 
@@ -74,117 +78,8 @@ export default class MainScene extends Phaser.Scene {
         this.registerCollisions();
         this.registerSpawnEvents();
         this.registerGlobalBulletCleanup();
-        const music = this.sound.add('backgroundMusic', {loop: true, volume: 0.5});
-        music.play();
-
-        let thrust = 0;
-
-        const speakerIcon = this.add.image(this.cameras.main.width - 40, this.cameras.main.height - 40, 'speakerOn')
-            .setScrollFactor(0)
-            .setInteractive()
-            .setDisplaySize(40, 40);
-
-        speakerIcon.on('pointerdown', (pointer, localX, localY, event) => {
-            event.stopPropagation();
-            thrust = -300;
-
-            if (music.isPlaying) {
-                music.pause();
-                speakerIcon.setTexture('speakerOff');
-            } else {
-                music.resume();
-                speakerIcon.setTexture('speakerOn');
-            }
-        });
-
-        this.input.on('pointerdown', (pointer) => {
-            thrust = 0;
-            if (this.rocket && this.rocket.body) {
-                if (pointer.x < this.cameras.main.width / 2) {
-                    this.rocket.setVelocityX(-200);
-                } else {
-                    this.rocket.setVelocityX(200);
-                }
-
-                this.rocket.setVelocityY(-200);
-            }
-            if (this.rocket && this.rocket.active) {
-                this.fireBullet();
-                this.tweens.add({
-                    targets: this.rocket,
-                    scaleX: 1.8,
-                    scaleY: 1.8,
-                    duration: 100,
-                    yoyo: true,
-                    ease: 'Power1'
-                });
-            }
-        });
-
-        this.rocket.setInteractive();
-        this.rocket.on('pointerdown', (pointer) => {
-            pointer.event.stopPropagation();
-            if (this.rocket && this.rocket.active) {
-                this.fireBullet();
-            }
-        });
-
-        this.input.on('pointerup', () => {
-            if (this.rocket && this.rocket.active) {
-                this.rocket.setVelocityX(0);
-                this.rocket.setVelocityY(0);
-            }
-        });
-
-        this.input.on('pointermove', (pointer) => {
-            if (!this.rocket || !this.rocket.active) return;
-
-            if (pointer.isDown) {
-                if (pointer.y < this.rocket.y) {
-                    this.rocket.setVelocityY(-200); // Move up
-                } else {
-                    this.rocket.setVelocityY(200); // Move down
-                }
-            }
-        });
-
-        this.physics.world.on('worldstep', () => {
-            if (this.rocket && this.rocket.body) {
-                this.rocket.setVelocityY(thrust);
-            }
-        });
-
-        speakerIcon.on('pointerover', () => {
-            speakerIcon.setDisplaySize(50, 50);
-        });
-
-        speakerIcon.on('pointerout', () => {
-            speakerIcon.setDisplaySize(40, 40);
-        });
-
-        this.scale.on('resize', (gameSize) => {
-            const {width, height} = gameSize;
-            const padding = Math.max(width * 0.02, 10);
-            const baseFontSize = Math.max(width * 0.03, 20);
-
-            speakerIcon.setPosition(width - 40, height - 40);
-
-            if (this.rocket && this.rocket.body) {
-                this.rocket.setPosition(width / 2, height - 100);
-
-                this.healthText.setPosition(padding, padding);
-                this.healthText.setFontSize(baseFontSize);
-
-                this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + 10);
-                this.cowsRescuedText.setFontSize(baseFontSize);
-
-                this.scoreText.setPosition(width - padding - 200, padding);
-                this.scoreText.setFontSize(baseFontSize);
-
-                this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
-                this.cameras.main.setViewport(0, 0, width, height);
-            }
-        });
+        this.registerAudioAndPointerEvents();
+        this.registerResizeEvents();
 
         console.log("✅ Scene Created!");
     }
@@ -199,7 +94,7 @@ export default class MainScene extends Phaser.Scene {
         this.updateBackgroundPosition();
     }
 
-    // ─── SETUP METHODS ────────────────────────────────────────────────
+    // ─── SETUP METHODS ──────────────────────────────────────────
 
     private setupBackground() {
         this.background = this.add
@@ -218,6 +113,14 @@ export default class MainScene extends Phaser.Scene {
             .setScale(2)
             .setCollideWorldBounds(true);
         this.rocket.play("fly");
+        // Make the rocket interactive for tap-to-shoot.
+        this.rocket.setInteractive();
+        this.rocket.on("pointerdown", (pointer) => {
+            if (this.rocket && this.rocket.active) {
+                this.fireBullet();
+                pointer.event.stopPropagation();
+            }
+        });
     }
 
     private setupCameraAndWorld() {
@@ -230,17 +133,18 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private initializeGroups() {
+        // Stars group and initial generation.
         this.stars = this.physics.add.group();
         generateStars(this, this.stars);
 
         this.rocketBullets = this.physics.add.group({
             classType: Phaser.Physics.Arcade.Image,
             runChildUpdate: true,
-            maxSize: 20
+            maxSize: 20,
         });
         this.ufoBullets = this.physics.add.group({
             defaultKey: "ufoBullet",
-            maxSize: 10
+            maxSize: 10,
         });
         this.cows = this.physics.add.group({
             collideWorldBounds: true,
@@ -254,56 +158,66 @@ export default class MainScene extends Phaser.Scene {
         const baseFontSizeGameOver = Math.max(this.cameras.main.width * 0.03, 16);
         const padding = Math.max(this.cameras.main.width * 0.02, 10);
 
-        this.healthText = this.add.text(padding, padding, `❤️ Health: ${this.rocketHealth}`, {
-            fontSize: `${baseFontSize}px`,
-            color: "#ff4d4d",
-            fontFamily: "Arial",
-            fontStyle: "bold"
-        }).setScrollFactor(0);
+        this.healthText = this.add
+            .text(padding, padding, `❤️ Health: ${this.rocketHealth}`, {
+                fontSize: `${baseFontSize}px`,
+                color: "#ff4d4d",
+                fontFamily: "Arial",
+                fontStyle: "bold",
+            })
+            .setScrollFactor(0);
 
-        // Stars Text (Top-Right)
-        this.scoreText = this.add.text(this.cameras.main.width - padding - 200, padding, `⭐ Stars: ${this.score}`, {
-            fontSize: `${baseFontSize}px`,
-            color: "#ffff00",
-            fontFamily: "Arial",
-            fontStyle: "bold"
-        }).setScrollFactor(0);
+        this.scoreText = this.add
+            .text(this.cameras.main.width - padding - 200, padding, `⭐ Stars: ${this.score}`, {
+                fontSize: `${baseFontSize}px`,
+                color: "#ffff00",
+                fontFamily: "Arial",
+                fontStyle: "bold",
+            })
+            .setScrollFactor(0);
 
-        // Cows Rescued Text (Below Health)
-        this.cowsRescuedText = this.add.text(padding, this.healthText.y + baseFontSize + 10, `🐄 Cows Rescued: ${this.cowsRescued}`, {
-            fontSize: `${baseFontSize}px`,
-            color: "#ffffff",
-            fontFamily: "Arial",
-            fontStyle: "bold"
-        }).setScrollFactor(0);
+        this.cowsRescuedText = this.add
+            .text(
+                padding,
+                this.healthText.y + baseFontSize + 10,
+                `🐄 Cows Rescued: ${this.cowsRescued}`,
+                {
+                    fontSize: `${baseFontSize}px`,
+                    color: "#ffffff",
+                    fontFamily: "Arial",
+                    fontStyle: "bold",
+                }
+            )
+            .setScrollFactor(0);
 
-        this.cowsRescuedGameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 50,
-            `🐄 Cows Rescued: ${this.cowsRescued}`, {
-            fontSize: "30px",
-            color: "#ffffff"
-        }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
-
-        this.gameOverText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'GAME OVER', {
-            fontSize: `${baseFontSizeGameOver}px`,
-            color: '#ff0000',
-            fontFamily: 'Arial',
-            fontStyle: 'bold'
-        })
+        this.gameOverText = this.add
+            .text(this.cameras.main.width / 2, this.cameras.main.height / 2, "GAME OVER", {
+                fontSize: `${baseFontSizeGameOver}px`,
+                color: "#ff0000",
+                fontFamily: "Arial",
+                fontStyle: "bold",
+            })
             .setOrigin(0.5)
             .setScrollFactor(0)
             .setVisible(false);
 
-        this.healthText.setPosition(padding, padding);
-        this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + padding);
-        const safeAreaPadding = 20;
-        this.scoreText.setPosition(this.cameras.main.width - 160, safeAreaPadding);
+        this.cowsRescuedGameOverText = this.add
+            .text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 50, `🐄 Cows Rescued: ${this.cowsRescued}`, {
+                fontSize: "30px",
+                color: "#ffffff",
+            })
+            .setOrigin(0.5)
+            .setScrollFactor(0)
+            .setVisible(false);
+
+        // Optional tween on rescued cows text.
         this.tweens.add({
             targets: this.cowsRescuedText,
             scaleX: 1.2,
             scaleY: 1.2,
             yoyo: true,
             duration: 200,
-            ease: 'Power2'
+            ease: "Power2",
         });
     }
 
@@ -367,84 +281,151 @@ export default class MainScene extends Phaser.Scene {
         this.time.addEvent({
             delay: 7000,
             loop: true,
-            callback: () => spawnRandomCows(this, this.cows)
+            callback: () => spawnRandomCows(this, this.cows),
         });
         this.time.addEvent({
             delay: 10000,
             loop: true,
-            callback: () => spawnChasingUFO(this, this.ufos, this.rocket)
+            callback: () => spawnChasingUFO(this, this.ufos, this.rocket),
         });
         this.time.addEvent({
             delay: 15000,
             loop: true,
-            callback: () => spawnAggressiveUFO(this, this.ufos, this.rocket, this.ufoBullets)
+            callback: () => spawnAggressiveUFO(this, this.ufos, this.rocket, this.ufoBullets),
         });
     }
 
     private registerGlobalBulletCleanup() {
-        this.physics.world.on('worldbounds', (body: Phaser.Physics.Arcade.Body) => {
+        this.physics.world.on("worldbounds", (body: Phaser.Physics.Arcade.Body) => {
             const gameObject = body.gameObject as Phaser.GameObjects.GameObject;
-            if (gameObject && (gameObject as Phaser.Physics.Arcade.Image).texture.key === 'pinkBullet') {
+            if (gameObject && (gameObject as Phaser.Physics.Arcade.Image).texture.key === "pinkBullet") {
                 gameObject.destroy();
             }
         });
     }
 
-    // ─── COLLISION HANDLERS ───────────────────────────────────────────
+    /**
+     * Registers audio and pointer events for mobile/touch control and the speaker icon.
+     */
+    private registerAudioAndPointerEvents() {
+        // Audio setup: background music.
+        this.music = this.sound.add("backgroundMusic", { loop: true, volume: 0.5 });
+        this.music.play();
 
-    private onRocketHitByBullet(rocket: Phaser.Physics.Arcade.Sprite, bullet: Phaser.Physics.Arcade.Sprite) {
-        bulletHitRocket(rocket, bullet, this, this.healthText, () => {
-            this.rocketHealth--;
-            this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
-            if (this.rocketHealth <= 0) this.endGame();
+        // Speaker icon for toggling music.
+        const speakerIcon = this.add
+            .image(this.cameras.main.width - 40, this.cameras.main.height - 40, "speakerOn")
+            .setScrollFactor(0)
+            .setInteractive()
+            .setDisplaySize(40, 40);
+
+        speakerIcon.on("pointerdown", (pointer, localX, localY, event) => {
+            event.stopPropagation();
+            // Toggle music play state.
+            if (this.music.isPlaying) {
+                this.music.pause();
+                speakerIcon.setTexture("speakerOff");
+            } else {
+                this.music.resume();
+                speakerIcon.setTexture("speakerOn");
+            }
+        });
+
+        speakerIcon.on("pointerover", () => speakerIcon.setDisplaySize(50, 50));
+        speakerIcon.on("pointerout", () => speakerIcon.setDisplaySize(40, 40));
+
+        // Pointer controls for moving the rocket.
+        this.input.on("pointerdown", (pointer) => {
+            this.isTouching = true;
+            this.moveRocket(pointer);
+        });
+
+        this.input.on("pointermove", (pointer) => {
+            if (this.isTouching) {
+                this.moveRocket(pointer);
+            }
+        });
+
+        this.input.on("pointerup", () => {
+            this.isTouching = false;
+            if (this.rocket && this.rocket.active) {
+                this.rocket.setVelocity(0);
+            }
+        });
+
+        // Use world step event to adjust vertical thrust (if needed)
+        this.physics.world.on("worldstep", () => {
+            if (this.rocket && this.rocket.body) {
+                // Here you can adjust vertical velocity continuously (if desired)
+                // Example: this.rocket.setVelocityY(-300) based on your game logic.
+            }
         });
     }
 
-    private onStarCollected(star: Phaser.Physics.Arcade.Sprite) {
-        star.destroy();
-        this.score++;
-        this.scoreText.setText(`⭐ Stars: ${this.score}`);
+    /**
+     * Sets up the scene’s UI and repositions elements on resize.
+     */
+    private registerResizeEvents() {
+        this.scale.on("resize", (gameSize) => {
+            const { width, height } = gameSize;
+            const padding = Math.max(width * 0.02, 10);
+            const baseFontSize = Math.max(width * 0.03, 20);
+
+            // Reposition speaker icon.
+            // (Assumes the speaker icon is a child of the scene and its key remains the same.)
+            const speakerIcon = this.children.getByName("speakerIcon") as Phaser.GameObjects.Image;
+            if (speakerIcon) {
+                speakerIcon.setPosition(width - 40, height - 40);
+            }
+
+            // Reposition rocket.
+            if (this.rocket && this.rocket.body) {
+                this.rocket.setPosition(width / 2, height - 100);
+            }
+
+            // Reposition UI elements.
+            this.healthText.setPosition(padding, padding);
+            this.healthText.setFontSize(baseFontSize);
+
+            this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + 10);
+            this.cowsRescuedText.setFontSize(baseFontSize);
+
+            this.scoreText.setPosition(width - padding - 200, padding);
+            this.scoreText.setFontSize(baseFontSize);
+
+            this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
+            this.cameras.main.setViewport(0, 0, width, height);
+        });
     }
 
-    private onCowRescued(cow: Phaser.Physics.Arcade.Sprite) {
-        console.log("🐄 Cow rescued! +1 Health!");
-        cow.destroy();
-        this.cowsRescued++;
-        this.cowsRescuedText.setText(`🐄 Cows Rescued: ${this.cowsRescued}`);
-        if (this.rocketHealth < 3) {
-            this.rocketHealth++;
-            this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
+    // ─── UTILITY METHODS ─────────────────────────────────────────
+
+    /**
+     * Moves the rocket based on pointer position.
+     */
+    private moveRocket(pointer: Phaser.Input.Pointer): void {
+        if (!this.rocket || !this.rocket.active) return;
+
+        const screenMiddle = this.cameras.main.width / 2;
+        if (pointer.x < screenMiddle) {
+            this.rocket.setVelocityX(-MainScene.ROCKET_SPEED);
+        } else {
+            this.rocket.setVelocityX(MainScene.ROCKET_SPEED);
+        }
+
+        // Optional up/down movement.
+        if (pointer.y < this.rocket.y) {
+            this.rocket.setVelocityY(-MainScene.ROCKET_SPEED);
+        } else if (pointer.y > this.rocket.y) {
+            this.rocket.setVelocityY(MainScene.ROCKET_SPEED);
         }
     }
 
-    private onCowHitByBullet(bullet: Phaser.Physics.Arcade.Image, cow: Phaser.Physics.Arcade.Sprite) {
-        console.log("💥 Cow hit by bullet!");
-        bullet.destroy();
-        cow.setVelocityY(-300); // Knock the cow upwards
-        this.time.delayedCall(2000, () => cow.destroy());
-    }
-
-    private onRocketCollideWithUFO(ufo: Phaser.Physics.Arcade.Sprite) {
-        console.log("🚀 Rocket hit by UFO!");
-        this.rocketHealth--;
-        this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
-        if (this.rocketHealth <= 0) {
-            this.endGame();
-        }
-        ufo.destroy();
-    }
-
-    private onRocketBulletHitUFO(bullet: Phaser.Physics.Arcade.Image, ufo: Phaser.Physics.Arcade.Sprite) {
-        console.log("💥 Rocket bullet hit UFO!");
-        bullet.destroy();
-        ufo.destroy();
-    }
-
-    // ─── UPDATE HELPER METHODS ─────────────────────────────────────────
+    // ─── UPDATE HELPER METHODS ───────────────────────────────────
 
     private handlePlayerMovement() {
+        // Reset velocity and apply keyboard-based movement.
         this.rocket.setVelocity(0);
-
         if (this.cursors.left.isDown) {
             this.rocket.setVelocityX(-MainScene.ROCKET_SPEED);
         }
@@ -498,7 +479,7 @@ export default class MainScene extends Phaser.Scene {
             this.lastFired = currentTime;
         }
 
-        // Remove bullets that have gone too far above the camera view
+        // Remove bullets that have left the viewport.
         this.rocketBullets.getChildren().forEach((bullet) => {
             if ((bullet as Phaser.Physics.Arcade.Image).y < this.cameras.main.scrollY - 50) {
                 bullet.destroy();
@@ -518,15 +499,15 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private updateBackgroundPosition() {
-        this.background.tilePositionY += (this.rocket.body.velocity.y * 0.02);
-        this.background.tilePositionX += (this.rocket.body.velocity.x * 0.02);
+        this.background.tilePositionY += this.rocket.body.velocity.y * 0.02;
+        this.background.tilePositionX += this.rocket.body.velocity.x * 0.02;
     }
 
-    // ─── BULLET CREATION ──────────────────────────────────────────────
+    // ─── BULLET CREATION ──────────────────────────────────────────
 
     private fireBullet() {
         if (!this.rocket || !this.rocket.active) return;
-        const bullet = this.rocketBullets.get(this.rocket.x, this.rocket.y - 20, 'pinkBullet') as Phaser.Physics.Arcade.Image;
+        const bullet = this.rocketBullets.get(this.rocket.x, this.rocket.y - 20, "pinkBullet") as Phaser.Physics.Arcade.Image;
         if (bullet) {
             bullet.setActive(true);
             bullet.setVisible(true);
@@ -538,19 +519,70 @@ export default class MainScene extends Phaser.Scene {
         }
     }
 
-    // ─── GAME OVER ─────────────────────────────────────────────────────
+    // ─── COLLISION HANDLERS ──────────────────────────────────────
+
+    private onRocketHitByBullet(rocket: Phaser.Physics.Arcade.Sprite, bullet: Phaser.Physics.Arcade.Sprite) {
+        bulletHitRocket(rocket, bullet, this, this.healthText, () => {
+            this.rocketHealth--;
+            this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
+            if (this.rocketHealth <= 0) {
+                this.endGame();
+            }
+        });
+    }
+
+    private onStarCollected(star: Phaser.Physics.Arcade.Sprite) {
+        star.destroy();
+        this.score++;
+        this.scoreText.setText(`⭐ Stars: ${this.score}`);
+    }
+
+    private onCowRescued(cow: Phaser.Physics.Arcade.Sprite) {
+        console.log("🐄 Cow rescued! +1 Health!");
+        cow.destroy();
+        this.cowsRescued++;
+        this.cowsRescuedText.setText(`🐄 Cows Rescued: ${this.cowsRescued}`);
+        if (this.rocketHealth < 3) {
+            this.rocketHealth++;
+            this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
+        }
+    }
+
+    private onCowHitByBullet(bullet: Phaser.Physics.Arcade.Image, cow: Phaser.Physics.Arcade.Sprite) {
+        console.log("💥 Cow hit by bullet!");
+        bullet.destroy();
+        cow.setVelocityY(-300);
+        this.time.delayedCall(2000, () => cow.destroy());
+    }
+
+    private onRocketCollideWithUFO(ufo: Phaser.Physics.Arcade.Sprite) {
+        console.log("🚀 Rocket hit by UFO!");
+        this.rocketHealth--;
+        this.healthText.setText(`❤️ Health: ${this.rocketHealth}`);
+        if (this.rocketHealth <= 0) {
+            this.endGame();
+        }
+        ufo.destroy();
+    }
+
+    private onRocketBulletHitUFO(bullet: Phaser.Physics.Arcade.Image, ufo: Phaser.Physics.Arcade.Sprite) {
+        console.log("💥 Rocket bullet hit UFO!");
+        bullet.destroy();
+        ufo.destroy();
+    }
+
+    // ─── GAME OVER ───────────────────────────────────────────────
 
     private endGame() {
         console.log("🚀💀 Game Over! Rocket destroyed!");
         this.rocket.destroy();
         this.gameOverText.setVisible(true);
         this.cowsRescuedGameOverText.setVisible(true);
-
         this.tweens.add({
             targets: this.gameOverText,
-            alpha: {from: 0, to: 1},
+            alpha: { from: 0, to: 1 },
             duration: 1000,
-            ease: 'Power2'
+            ease: "Power2",
         });
         this.time.delayedCall(3000, () => this.scene.restart());
     }
