@@ -182,22 +182,17 @@ export default class MainScene extends Phaser.Scene {
             .setScrollFactor(0);
 
         this.cowsRescuedText = this.add
-            .text(
-                padding,
-                this.healthText.y + baseFontSize + 10,
-                `🐄 Cows Rescued: ${this.cowsRescued}`,
-                {
-                    fontSize: `${baseFontSize}px`,
-                    color: "#ffffff",
-                    fontFamily: "Arial",
-                    fontStyle: "bold",
-                }
-            )
+            .text(padding, this.healthText.y + baseFontSize + 10, `🐄 Cows Rescued: ${this.cowsRescued}`, {
+                fontSize: `${baseFontSize}px`,
+                color: "#ffffff",
+                fontFamily: "Arial",
+                fontStyle: "bold",
+            })
             .setScrollFactor(0);
 
         this.gameOverText = this.add
             .text(this.cameras.main.width / 2, this.cameras.main.height / 2, "GAME OVER", {
-                fontSize: `${baseFontSizeGameOver}px`,
+                fontSize: `${Math.max(this.cameras.main.width * 0.03, 16)}px`,
                 color: "#ff0000",
                 fontFamily: "Arial",
                 fontStyle: "bold",
@@ -215,7 +210,8 @@ export default class MainScene extends Phaser.Scene {
             .setScrollFactor(0)
             .setVisible(false);
 
-        // Optional tween on rescued cows text.
+
+
         this.tweens.add({
             targets: this.cowsRescuedText,
             scaleX: 1.2,
@@ -225,6 +221,43 @@ export default class MainScene extends Phaser.Scene {
             ease: "Power2",
         });
     }
+
+    private registerResizeEvents() {
+        this.scale.on("resize", () => {
+            // Get the actual game canvas size.
+            const width = this.scale.gameSize.width;
+            const height = this.scale.gameSize.height;
+
+            const padding = Math.max(width * 0.02, 10);
+            const baseFontSize = Math.max(width * 0.03, 20);
+
+            // Reposition UI elements using the new dimensions.
+            this.healthText.setPosition(padding, padding);
+            this.healthText.setFontSize(`${baseFontSize}px`);
+
+            this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + 10);
+            this.cowsRescuedText.setFontSize(`${baseFontSize}px`);
+
+            // Position the scoreText relative to the right edge.
+            this.scoreText.setPosition(width - padding - this.scoreText.width, padding);
+            this.scoreText.setFontSize(`${baseFontSize}px`);
+
+            // Reposition game over texts.
+            this.gameOverText.setPosition(width / 2, height / 2);
+            this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
+
+            // Reposition the speaker icon.
+            const speakerIcon = this.children.getByName("speakerIcon") as Phaser.GameObjects.Image;
+            if (speakerIcon) {
+                speakerIcon.setPosition(width - padding - 40, height - padding - 40);
+            }
+
+            // Update the camera viewport.
+            this.cameras.main.setViewport(0, 0, width, height);
+        });
+    }
+
+
 
     private registerCollisions() {
         // Rocket hit by UFO bullet
@@ -362,38 +395,38 @@ export default class MainScene extends Phaser.Scene {
     /**
      * Sets up the scene’s UI and repositions elements on resize.
      */
-    private registerResizeEvents() {
-        this.scale.on("resize", (gameSize) => {
-            const { width, height } = gameSize;
-            const padding = Math.max(width * 0.02, 10);
-            const baseFontSize = Math.max(width * 0.03, 20);
-
-            // Reposition speaker icon.
-            // (Assumes the speaker icon is a child of the scene and its key remains the same.)
-            const speakerIcon = this.children.getByName("speakerIcon") as Phaser.GameObjects.Image;
-            if (speakerIcon) {
-                speakerIcon.setPosition(width - 40, height - 40);
-            }
-
-            // Reposition rocket.
-            if (this.rocket && this.rocket.body) {
-                this.rocket.setPosition(width / 2, height - 100);
-            }
-
-            // Reposition UI elements.
-            this.healthText.setPosition(padding, padding);
-            this.healthText.setFontSize(baseFontSize);
-
-            this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + 10);
-            this.cowsRescuedText.setFontSize(baseFontSize);
-
-            this.scoreText.setPosition(width - padding - 200, padding);
-            this.scoreText.setFontSize(baseFontSize);
-
-            this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
-            this.cameras.main.setViewport(0, 0, width, height);
-        });
-    }
+    // private registerResizeEvents() {
+    //     this.scale.on("resize", (gameSize) => {
+    //         const { width, height } = gameSize;
+    //         const padding = Math.max(width * 0.02, 10);
+    //         const baseFontSize = Math.max(width * 0.03, 20);
+    //
+    //         // Reposition speaker icon.
+    //         // (Assumes the speaker icon is a child of the scene and its key remains the same.)
+    //         const speakerIcon = this.children.getByName("speakerIcon") as Phaser.GameObjects.Image;
+    //         if (speakerIcon) {
+    //             speakerIcon.setPosition(width - 40, height - 40);
+    //         }
+    //
+    //         // Reposition rocket.
+    //         if (this.rocket && this.rocket.body) {
+    //             this.rocket.setPosition(width / 2, height - 100);
+    //         }
+    //
+    //         // Reposition UI elements.
+    //         this.healthText.setPosition(padding, padding);
+    //         this.healthText.setFontSize(baseFontSize);
+    //
+    //         this.cowsRescuedText.setPosition(padding, this.healthText.y + baseFontSize + 10);
+    //         this.cowsRescuedText.setFontSize(baseFontSize);
+    //
+    //         this.scoreText.setPosition(width - padding - 200, padding);
+    //         this.scoreText.setFontSize(baseFontSize);
+    //
+    //         this.cowsRescuedGameOverText.setPosition(width / 2, height / 2 + 50);
+    //         this.cameras.main.setViewport(0, 0, width, height);
+    //     });
+    // }
 
     // ─── UTILITY METHODS ─────────────────────────────────────────
 
