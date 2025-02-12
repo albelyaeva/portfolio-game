@@ -86,7 +86,12 @@ export default class MainScene extends Phaser.Scene {
 
     update(time: number) {
         if (!this.rocket || !this.rocket.body) return;
-        this.handlePlayerMovement();
+
+        // If pointer (touch) is active, let pointer events handle movement.
+        if (!this.isTouching) {
+            this.handleKeyboardMovement();
+        }
+
         this.manageStars(time);
         this.handleCowEscape();
         this.handleShooting(time);
@@ -334,7 +339,6 @@ export default class MainScene extends Phaser.Scene {
         speakerIcon.on("pointerover", () => speakerIcon.setDisplaySize(50, 50));
         speakerIcon.on("pointerout", () => speakerIcon.setDisplaySize(40, 40));
 
-        // Pointer controls for moving the rocket.
         this.input.on("pointerdown", (pointer) => {
             this.isTouching = true;
             this.moveRocket(pointer);
@@ -348,16 +352,9 @@ export default class MainScene extends Phaser.Scene {
 
         this.input.on("pointerup", () => {
             this.isTouching = false;
+            // Optionally set a default upward velocity after touch ends.
             if (this.rocket && this.rocket.active) {
-                this.rocket.setVelocity(0);
-            }
-        });
-
-        // Use world step event to adjust vertical thrust (if needed)
-        this.physics.world.on("worldstep", () => {
-            if (this.rocket && this.rocket.body) {
-                // Here you can adjust vertical velocity continuously (if desired)
-                // Example: this.rocket.setVelocityY(-300) based on your game logic.
+                this.rocket.setVelocity(0, -50);
             }
         });
     }
@@ -406,38 +403,52 @@ export default class MainScene extends Phaser.Scene {
     private moveRocket(pointer: Phaser.Input.Pointer): void {
         if (!this.rocket || !this.rocket.active) return;
 
-        const screenMiddle = this.cameras.main.width / 2;
-        if (pointer.x < screenMiddle) {
-            this.rocket.setVelocityX(-MainScene.ROCKET_SPEED);
-        } else {
-            this.rocket.setVelocityX(MainScene.ROCKET_SPEED);
-        }
+        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
-        // Optional up/down movement.
-        if (pointer.y < this.rocket.y) {
-            this.rocket.setVelocityY(-MainScene.ROCKET_SPEED);
-        } else if (pointer.y > this.rocket.y) {
-            this.rocket.setVelocityY(MainScene.ROCKET_SPEED);
-        }
+        const diffX = worldPoint.x - this.rocket.x;
+        const diffY = worldPoint.y - this.rocket.y;
+
+        const multiplierX = 1.0;
+        const multiplierY = 0.5;
+
+        const interpolation = 0.3;
+
+        const newVelX = Phaser.Math.Linear(this.rocket.body.velocity.x, diffX * multiplierX, interpolation);
+        const newVelY = Phaser.Math.Linear(this.rocket.body.velocity.y, diffY * multiplierY, interpolation);
+
+        this.rocket.setVelocity(newVelX, newVelY);
     }
 
     // ─── UPDATE HELPER METHODS ───────────────────────────────────
 
-    private handlePlayerMovement() {
-        // Reset velocity and apply keyboard-based movement.
-        this.rocket.setVelocity(0);
+    private handleKeyboardMovement() {
+        let velocityX = 0;
+        let velocityY = 0;
+
         if (this.cursors.left.isDown) {
-            this.rocket.setVelocityX(-MainScene.ROCKET_SPEED);
+            velocityX = -MainScene.ROCKET_SPEED;
+        } else if (this.cursors.right.isDown) {
+            velocityX = MainScene.ROCKET_SPEED;
         }
-        if (this.cursors.right.isDown) {
-            this.rocket.setVelocityX(MainScene.ROCKET_SPEED);
-        }
+
         if (this.cursors.up.isDown) {
-            this.rocket.setVelocityY(-MainScene.ROCKET_SPEED);
+            velocityY = -MainScene.ROCKET_SPEED;
+        } else if (this.cursors.down.isDown) {
+            velocityY = MainScene.ROCKET_SPEED;
+        }
+
+        // If no keyboard input is provided, apply a default upward velocity
+        if (velocityX === 0 && velocityY === 0) {
+            velocityY = -50; // Adjust this value for a smooth default upward drift.
+        }
+
+        this.rocket.setVelocity(velocityX, velocityY);
+
+        // Optionally, update the camera and background based on velocity.
+        if (velocityY < 0) {
             this.cameras.main.scrollY -= 4;
             this.background.tilePositionY -= 2;
-        } else if (this.cursors.down.isDown) {
-            this.rocket.setVelocityY(MainScene.ROCKET_SPEED);
+        } else if (velocityY > 0) {
             this.cameras.main.scrollY += 2;
             this.background.tilePositionY += 1;
         }
