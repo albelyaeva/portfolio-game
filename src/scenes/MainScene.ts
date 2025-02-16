@@ -102,8 +102,9 @@ export default class MainScene extends Phaser.Scene {
     // ─── SETUP METHODS ──────────────────────────────────────────
 
     private setupBackground() {
-        this.background = this.add
-            .tileSprite(400, 300, 800, 600, "background")
+        const width = this.scale.gameSize.width;
+        const height = this.scale.gameSize.height;
+        this.background = this.add.tileSprite(width / 2, height / 2, width, height, "background")
             .setScrollFactor(0);
     }
 
@@ -130,7 +131,10 @@ export default class MainScene extends Phaser.Scene {
 
     private setupCameraAndWorld() {
         this.cameras.main.startFollow(this.rocket, true, 0.05, 0.05);
+        this.cameras.main.setFollowOffset(150, 0);
+
         this.cameras.main.setLerp(0.1, 0.1);
+
         const worldWidth = 1600;
         const worldHeight = 2000;
         this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
